@@ -29,7 +29,7 @@ lib_dir=$(src_dir)/lib
 kernel_dir=$(src_dir)/kernel
 platforms_dir=$(src_dir)/platform
 platform_dir=$(platforms_dir)/$(PLATFORM)
-drivers_dir=$(platforms_dir)/drivers
+driver_dir=$(platforms_dir)/drivers/$(DRIVER)
 benchmarks_dir=$(src_dir)/benchmark
 
 # Include Platform and Architecture specific Makefiles
@@ -39,12 +39,17 @@ benchmarks_dir=$(src_dir)/benchmark
 build_dir:=$(cur_dir)/build/$(PLATFORM)
 bin_dir:=$(cur_dir)/bin/$(PLATFORM)
 
+# all source directories, include arch, lib, kernel, platform, driver, benchmarks
 src_dirs=$(arch_dir) $(lib_dir) $(kernel_dir) ${benchmarks_dir} \
-	$(platform_dir) $(addprefix $(drivers_dir)/, $(drivers))
+	$(driver_dir) $(platform_dir) 
+
+# all include directories
 inc_dirs:=$(addsuffix /inc, $(src_dirs))
 
+# all build directories
 build_dirs:=$(patsubst $(src_dir)%, $(build_dir)%, $(src_dirs) $(inc_dirs))
 
+# all directories
 directories:=$(build_dir) $(bin_dir) $(build_dirs)
 
 # Setup list of targets for compilation
@@ -59,19 +64,20 @@ ld_script:= $(platform_dir)/linker.ld
 
 # addprefix for objects
 objs-y:=
-objs-y+=$(addprefix $(arch_dir)/, $(arch-objs-y))
-objs-y+=$(addprefix $(lib_dir)/, $(lib-objs-y))
-objs-y+=$(addprefix $(kernel_dir)/, $(kernel-objs-y))
-objs-y+=$(addprefix $(platform_dir)/, $(platform-objs-y))
-objs-y+=$(addprefix $(drivers_dir)/, $(drivers-objs-y))
-objs-y:=$(patsubst $(src_dir)%, $(build_dir)%, $(objs-y))
+objs-y+=$(addprefix $(arch_dir)/, $(arch-objs-y))				# all arch-objs-y
+objs-y+=$(addprefix $(lib_dir)/, $(lib-objs-y))					# all lib-objs-y
+objs-y+=$(addprefix $(kernel_dir)/, $(kernel-objs-y))			# all kernel-objs-y
+objs-y+=$(addprefix $(driver_dir)/, $(driver-objs-y))			# all drivers-objs-y
+objs-y+=$(addprefix $(platform_dir)/, $(platform-objs-y))		# all platform-objs-y
+objs-y+=$(addprefix $(benchmarks_dir)/, $(benchmark-objs-y))	# all benchmark-objs-y
 
-deps+=$(patsubst %.o,%.d,$(objs-y))
-objs-y:=$(patsubst $(src_dir)%, $(build_dir)%, $(objs-y))
+deps+=$(patsubst %.o,%.d,$(objs-y))	                            # all dependencies
+objs-y:=$(patsubst $(src_dir)%, $(build_dir)%, $(objs-y))		# all objs-y in build_dir
 
 # Toolchain flags
 override CPPFLAGS+=$(addprefix -I, $(inc_dirs)) $(arch-cppflags)
 
+# CFLAGS
 cflags_warns:= \
 	-Warith-conversion -Wbuiltin-declaration-mismatch \
 	-Wcomments  -Wdiscarded-qualifiers \
@@ -80,20 +86,21 @@ cflags_warns:= \
 	-Wshift-count-negative  -Wuninitialized \
 	-Wunused -Wunused-local-typedefs  -Wunused-parameter \
 	-Wunused-result -Wvla \
-	-Wconversion -Wsign-conversion \
 	-Wmissing-prototypes -Wmissing-declarations  \
 	-Wswitch-default -Wshadow -Wshadow=global \
-	-Wcast-qual -Wunused-macros \
+	-Wcast-qual \
 	-Wstrict-prototypes -Wunused-but-set-variable
 override CFLAGS+=-O2 -Wall -Werror -Wextra $(cflags_warns) \
 	-ffreestanding -std=c11 -fno-pic \
 	$(arch-cflags) $(CPPFLAGS)
 
-override LDFLAGS+=-build-id=none -nostdlib --fatal-warnings $(arch-ldflags)
+# LDFLAGS
+override LDFLAGS+=-build-id=none -nostdlib $(arch-ldflags)
 
 .PHONY: all
-all: ${targets-y}
+all build: ${targets-y}
 
+# build ELF
 $(bin_dir)/$(PROJECT_NAME).elf: $(objs-y)
 	@$(ld) $(LDFLAGS) -T$(ld_script) $(objs-y) -o $@
 	@$(objdump) -S --wide $@ > $(basename $@).asm
@@ -105,13 +112,15 @@ $(build_dir)/%.d : $(src_dir)/%.[c,S]
 	@$(cc) -MM -MG -MT "$(patsubst %.d, %.o, $@) $@"  $(CPPFLAGS) $< > $@	
 
 # Include all dependencies
+# 
 -include $(deps)
 
+# Compile source files
 $(objs-y):
-	@echo ${deps}
 	@echo "Compiling source	$(patsubst $(cur_dir)/%, %, $<)"
 	@$(cc) $(CFLAGS) -c $< -o $@
 
+# Generate binary from ELF
 %.bin: %.elf
 	@echo "Generating binary	$(patsubst $(cur_dir)/%, %, $@)"
 	@$(objcopy) -S -O binary $< $@
@@ -121,8 +130,10 @@ $(objs-y):
 .SECONDEXPANSION:
 
 # | is used for squential dependency
+# Indicating dir is dependent
 $(objs-y) $(deps) $(targets-y): | $$(@D)
 
+# Create directories
 $(directories):
 	@echo "Creating directory $(patsubst $(cur_dir)/%, %, $@)"
 	@mkdir -p $@

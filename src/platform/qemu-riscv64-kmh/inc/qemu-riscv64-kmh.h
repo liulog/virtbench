@@ -1,0 +1,6 @@
+#ifndef QEMU_RISCV64_KMH_H
+
+#define UARTADDR 0x310B0000UL
+#define UARTBAUD 115200
+
+#endif

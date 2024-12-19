@@ -1,10 +1,12 @@
+#include "platform.h"
 
-#define NCPU 1
-__attribute__ ((aligned (16))) char stack0[4096 * NCPU];
+__attribute__ ((aligned (16))) char stack0[4096];
 
 void
 main(void)
 {
+    platform_init();
+    while(1);
     // consoleinit();
     // printfinit();
     // printf("\n");

@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "qemu-riscv64-kmh.h": "c",
+        "platform.h": "c"
+    }
+}
